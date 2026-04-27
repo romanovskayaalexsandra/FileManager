@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📌 Мои задачи</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="POST" action="/add_task" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+                {{ form.title(class="form-control", placeholder="Название задачи") }}
+            </div>
+            <div class="form-group">
+                {{ form.description(class="form-control", placeholder="Описание") }}
+            </div>
+            <div class="form-group">
+                {{ form.file(class="form-control-file") }}
+            </div>
+            {{ form.submit(class="btn btn-success") }}
+        </form>
+    </div>
+</div>
+
+{% set total = tasks|length %}
+{% set done = tasks|selectattr("completed")|list|length %}
+{% set percent = (done / total * 100)|round(1) if total else 0 %}
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card text-center">
+            <div class="card-body">
+                <canvas id="progressChart" width="200" height="200"></canvas>
+                <h4>{{ done }} / {{ total }}</h4>
+                <p>Выполнено: {{ percent }}%</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5>💡 Совет</h5>
+                <p>Начни с первой задачи!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% for task in tasks %}
+<div class="card mb-2 {% if task.completed %}completed-task{% endif %}">
+    <div class="card-body">
+        <div class="form-check">
+            <input class="form-check-input task-checkbox" type="checkbox" data-id="{{ task.id }}" {% if task.completed %}checked{% endif %}>
+            <label class="form-check-label">
+                <strong>{{ task.title }}</strong><br>
+                <small>{{ task.description }}</small><br>
+                <small class="text-muted">📅 {{ task.created_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                {% if task.filename %}<br><a href="/download/{{ task.filename }}">📁 Скачать файл</a>{% endif %}
+                <br><a href="/delete_task/{{ task.id }}" class="text-danger" onclick="return confirm('Удалить задачу?')">🗑️ Удалить</a>
+            </label>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">📭 Нет задач. Добавь первую!</div>
+{% endfor %}
+
+<hr>
+<div class="alert alert-info text-center">
+    <strong>🔌 API:</strong> <a href="/api/tasks" target="_blank">/api/tasks</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Выполнено', 'Осталось'],
+            datasets: [{
+                data: [{{ done }}, {{ total - done }}],
+                backgroundColor: ['#28a745', '#dc3545']
+            }]
+        }
+    });
+
+    document.querySelectorAll('.task-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            fetch('/toggle_task/' + this.dataset.id).then(() => location.reload());
+        });
+    });
+</script>
+{% endblock %}
